@@ -20,16 +20,12 @@ FileTransferClient::FileTransferClient(const std::string& serverAddress) : host(
     // Prepare server address
     bzero(&server, sizeof(server));
 
-    // Copy the client host name (as bytes) into the server in address socket
-    hp = gethostbyname("localhost");
-    bcopy((char*)hp->h_addr, (char*)&server.sin_addr, hp->h_length);
-
     // Convert human-readable address into binary (32 bit num)
     inet_pton(AF_INET, host, &server.sin_addr);
 
     // Set family to TCP protocol and set socket address of client
     server.sin_family = AF_INET;
-    server.sin_port = htons(8082);
+    server.sin_port = htons(55387);
 
     // Connect to server
     if (connect(sock, (struct sockaddr*)&server, sizeof(server))<0){
@@ -54,8 +50,6 @@ FileTransferClient::FileTransferClient(const std::string& serverAddress) : host(
 }
 
 FileTransferClient::~FileTransferClient() {
-    delete hp;
-    delete host;
 }
 
 int main() {
@@ -63,4 +57,5 @@ int main() {
     std::cout << "enter a host address to connect: " << std::endl;
     std::cin >> serverAddress;
     FileTransferClient *c = new FileTransferClient(serverAddress);
+    delete c;
 }

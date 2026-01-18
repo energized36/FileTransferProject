@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <unistd.h>
 
 FileTransferServer::FileTransferServer() {
@@ -20,7 +21,6 @@ int main() {
     int msgsock;
     char buf[1024];
     int rval;
-    int i;
 
     sock = socket (AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -29,21 +29,27 @@ int main() {
 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(8082);
+    server.sin_port = htons(55387);
 
     if (bind (sock, (struct sockaddr *)&server, sizeof server) < 0) {
         perror ("binding stream socket");
     }
+
     listen (sock, 5);
+
     msgsock = accept(sock, (struct sockaddr *)0, (socklen_t *)0);
     if (msgsock == -1) {
         perror("accept");
     }
+
+    std::cout << "listening on port 8082" << std::endl;
+
     if ((rval = read(msgsock, buf, 1024)) < 0){
         perror("reading socket");
-    }else  {
+    } else {
         printf("%s\n",buf);
     }
+
     strcpy(buf,"HTTP/1.1 200 OK\r\nContent-length: 20\r\nContent-type: text/plain\r\n\r\ntemp1.txt, temp2.txt");
     if ((rval = write(msgsock, buf, 1024)) < 0){
         perror("writing socket");
