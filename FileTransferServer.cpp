@@ -25,7 +25,8 @@ bool addPortMapping(int port) {
     char wanaddr[64];
     int error = 0;
 
-    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
+    devlist = upnpDiscover(2000,nullptr,nullptr,0,0);
+    // devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
 
     if (!devlist) {
         std::cerr << "No UPnP devices found\n";
@@ -102,25 +103,31 @@ int main() {
     char buf[1024];
     int rval;
 
+    // Open stream socket
     sock = socket (AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("opening stream socket");
     }
 
+    // Declare server LAN, protocol and port
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(55387);
 
+    // Bind socket to address of server
     if (bind (sock, (struct sockaddr *)&server, sizeof server) < 0) {
         perror ("binding stream socket");
     }
 
-    // Use UPNP library to map ports
-    addPortMapping(55387);
+    // Map server lan port to 55387
+    if (getenv("LOCAL_RUN")) {
+        std::cout << "adding port mapping" << std::endl;
+        addPortMapping(55387);
+    }
 
     listen (sock, 5);
-
     msgsock = accept(sock, (struct sockaddr *)0, (socklen_t *)0);
+
     if (msgsock == -1) {
         perror("accept");
     }
@@ -135,7 +142,12 @@ int main() {
     if ((rval = write(msgsock, buf, 1024)) < 0){
         perror("writing socket");
     }
+
+    if (getenv("LOCAL_RUN")) {
+        std::cout << "removed port mapping" << std::endl;
+        removePortMapping(55387);
+    }
+
     close(msgsock);
-    removePortMapping(55387);
     return 0;
 }
