@@ -25,8 +25,8 @@ bool addPortMapping(int port) {
     char wanaddr[64];
     int error = 0;
 
-    devlist = upnpDiscover(2000,nullptr,nullptr,0,0);
-    // devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
+    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
+    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
 
     if (!devlist) {
         std::cerr << "No UPnP devices found\n";
@@ -34,7 +34,8 @@ bool addPortMapping(int port) {
         return false;
     }
 
-    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+    // int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
     freeUPNPDevlist(devlist);
 
     // print connected IP addresses
