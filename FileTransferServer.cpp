@@ -33,7 +33,8 @@ bool addPortMapping(int port) {
         return false;
     }
 
-    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+    // int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
     freeUPNPDevlist(devlist);
 
     // print connected IP addresses
