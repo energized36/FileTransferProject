@@ -26,7 +26,6 @@ bool addPortMapping(int port) {
     int error = 0;
 
     devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
-    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
 
     if (!devlist) {
         std::cerr << "No UPnP devices found\n";
@@ -127,28 +126,32 @@ int main() {
     }
 
     listen (sock, 5);
-    msgsock = accept(sock, (struct sockaddr *)0, (socklen_t *)0);
+    while (true) {
+        msgsock = accept(sock, nullptr, nullptr);
+        if (msgsock < 0) continue;
 
-    if (msgsock == -1) {
-        perror("accept");
+        // handle request
+        if ((rval = read(msgsock, buf, 1024)) < 0){
+            perror("reading socket");
+        } else {
+            printf("%s\n",buf);
+        }
+
+        strcpy(buf,"HTTP/1.1 200 OK\r\nContent-length: 20\r\nContent-type: text/plain\r\n\r\ntemp1.txt, temp2.txt");
+        if ((rval = write(msgsock, buf, 1024)) < 0){
+            perror("writing socket");
+        }
+
+        if (msgsock == -1) {
+            perror("accept");
+        }
+
+        if (getenv("LOCAL_RUN")) {
+            std::cout << "removed port mapping" << std::endl;
+            removePortMapping(55387);
+        }
+
+        close(msgsock);
+        return 0;
     }
-
-    if ((rval = read(msgsock, buf, 1024)) < 0){
-        perror("reading socket");
-    } else {
-        printf("%s\n",buf);
-    }
-
-    strcpy(buf,"HTTP/1.1 200 OK\r\nContent-length: 20\r\nContent-type: text/plain\r\n\r\ntemp1.txt, temp2.txt");
-    if ((rval = write(msgsock, buf, 1024)) < 0){
-        perror("writing socket");
-    }
-
-    if (getenv("LOCAL_RUN")) {
-        std::cout << "removed port mapping" << std::endl;
-        removePortMapping(55387);
-    }
-
-    close(msgsock);
-    return 0;
 }
