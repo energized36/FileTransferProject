@@ -1,157 +1,229 @@
 //
-// Created by Michael Lau on 2026-01-05.
+// Created by Michael Lau on 2026-01-26.
 //
 
-#include "FileTransferServer.hpp"
-
-#include <cstdio>
-#include <cstring>
 #include <iostream>
-#include <unistd.h>
-#include <miniupnpc/miniupnpc.h>
-#include <miniupnpc/upnpcommands.h>
-#include <miniupnpc/upnperrors.h>
+#include <string>
+#include <fstream>
+#include <ostream>
 
-FileTransferServer::FileTransferServer() {}
-FileTransferServer::~FileTransferServer() {}
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "ws2_32.lib")
+#else
+    #include <arpa/inet.h>
+    #include <netinet/in.h>
+    #include <sys/socket.h>
+    #include <unistd.h>
+#endif
 
-UPNPUrls urls;
-IGDdatas data;
-bool g_upnpReady = false;
+#define PORT 60001
 
-bool addPortMapping(int port) {
-    UPNPDev* devlist = nullptr;
-    char lanaddr[64];
-    char wanaddr[64];
-    int error = 0;
+//FileTransferServer::FileTransferServer() {}
+//FileTransferServer::~FileTransferServer() {}
 
-    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
+//UPNPUrls urls;
+//IGDdatas data;
+//bool g_upnpReady = false;
 
-    if (!devlist) {
-        std::cerr << "No UPnP devices found\n";
-        freeUPNPDevlist(devlist);
-        return false;
+//bool addPortMapping(int port) {
+//    UPNPDev* devlist = nullptr;
+//    char lanaddr[64];
+//    char wanaddr[64];
+//    int error = 0;
+//
+//    devlist = upnpDiscover(2000,nullptr,nullptr,0,0,2,&error);
+//
+//    if (!devlist) {
+//        std::cerr << "No UPnP devices found\n";
+//        freeUPNPDevlist(devlist);
+//        return false;
+//    }
+//
+//    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
+//    // int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
+//    freeUPNPDevlist(devlist);
+//
+//    // print connected IP addresses
+//    if (r <= 0) {
+//        std::cerr << "No valid IGD found\n";
+//        return false;
+//    }
+//
+//    g_upnpReady = true;
+//
+//    std::cout << "LAN IP: " << lanaddr << "\n";
+//    std::cout << "WAN IP: " << wanaddr << "\n";
+//
+//    std::string portStr = std::to_string(port);
+//    const char* externalPort = portStr.c_str();
+//    const char* internalPort = portStr.c_str();
+//    const char* internalClient = lanaddr;
+//    const char* protocol = "TCP";
+//    const char* description = "My C++ Server";
+//
+//    r = UPNP_AddPortMapping(urls.controlURL,data.first.servicetype,externalPort,internalPort,
+//        internalClient,
+//        description,
+//        protocol,
+//        nullptr,
+//        "0");
+//
+//    if (r != UPNPCOMMAND_SUCCESS) {
+//        std::cerr << "AddPortMapping failed: "
+//                  << strupnperror(r) << "\n";
+//        return false;
+//    }
+//    std::cout << "Port mapping added successfully!\n";
+//    return true;
+//}
+//
+//void removePortMapping(int port) {
+//    if (!g_upnpReady) return;
+//
+//    std::string portStr = std::to_string(port);
+//
+//    int r = UPNP_DeletePortMapping(
+//        urls.controlURL,
+//        data.first.servicetype,
+//        portStr.c_str(),
+//        "TCP",
+//        nullptr
+//    );
+//
+//    if (r != UPNPCOMMAND_SUCCESS) {
+//        std::cerr << "RemovePortMapping failed: "
+//                  << strupnperror(r) << "\n";
+//    } else {
+//        std::cout << "Port mapping removed\n";
+//    }
+//
+//    FreeUPNPUrls(&urls);
+//    g_upnpReady = false;
+//}
+
+
+void writeTextFile(const std::string& message) {
+    std::ofstream outFile("test.txt");
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Could not open file for writing" << std::endl;
     }
+    outFile << message;
+    outFile.close();
+}
 
-    // int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr), wanaddr, sizeof(wanaddr));
-    int r = UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
-    freeUPNPDevlist(devlist);
-
-    // print connected IP addresses
-    if (r <= 0) {
-        std::cerr << "No valid IGD found\n";
-        return false;
+bool send_all(int clientSocket, char* data, size_t fileSize) {
+    size_t sent = 0;
+    while (sent < fileSize) {
+        ssize_t remainingBytes = send(clientSocket, data + sent, fileSize - sent, 0);
+        if (remainingBytes <= 0) return false;
+        sent += remainingBytes;
     }
-
-    g_upnpReady = true;
-
-    std::cout << "LAN IP: " << lanaddr << "\n";
-    std::cout << "WAN IP: " << wanaddr << "\n";
-
-    std::string portStr = std::to_string(port);
-    const char* externalPort = portStr.c_str();
-    const char* internalPort = portStr.c_str();
-    const char* internalClient = lanaddr;
-    const char* protocol = "TCP";
-    const char* description = "My C++ Server";
-
-    r = UPNP_AddPortMapping(urls.controlURL,data.first.servicetype,externalPort,internalPort,
-        internalClient,
-        description,
-        protocol,
-        nullptr,
-        "0");
-
-    if (r != UPNPCOMMAND_SUCCESS) {
-        std::cerr << "AddPortMapping failed: "
-                  << strupnperror(r) << "\n";
-        return false;
-    }
-    std::cout << "Port mapping added successfully!\n";
     return true;
 }
 
-void removePortMapping(int port) {
-    if (!g_upnpReady) return;
-
-    std::string portStr = std::to_string(port);
-
-    int r = UPNP_DeletePortMapping(
-        urls.controlURL,
-        data.first.servicetype,
-        portStr.c_str(),
-        "TCP",
-        nullptr
-    );
-
-    if (r != UPNPCOMMAND_SUCCESS) {
-        std::cerr << "RemovePortMapping failed: "
-                  << strupnperror(r) << "\n";
-    } else {
-        std::cout << "Port mapping removed\n";
-    }
-
-    FreeUPNPUrls(&urls);
-    g_upnpReady = false;
-}
-
-
 int main() {
-    int sock, length;
-    struct sockaddr_in server;
-    int msgsock;
-    char buf[1024];
-    int rval;
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    char buffer[1024] = { 0 };
 
-    // Open stream socket
-    sock = socket (AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("opening stream socket");
+    #ifdef _WIN32
+    WSADATA wsa;    
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cerr << "WSAStartup failed\n";
+        return 1;
+    }
+    #endif
+
+    // Create socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
     }
 
-    // Declare server LAN, protocol and port
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(55387);
+    // Attach socket to the port
+    #ifdef _WIN32
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+    #else
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    #endif
 
-    // Bind socket to address of server
-    if (bind (sock, (struct sockaddr *)&server, sizeof server) < 0) {
-        perror ("binding stream socket");
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    // Bind
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
     }
 
-    // Map server lan port to 55387
-    if (getenv("LOCAL_RUN")) {
-        std::cout << "adding port mapping" << std::endl;
-        addPortMapping(55387);
+    // Listen
+    if (listen(server_fd, 3) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Listening on port " << PORT << std::endl;
+
+    // Accept a connection
+    new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+    if (new_socket < 0) {
+        perror("accept");
+        exit(EXIT_FAILURE);
     }
 
-    listen (sock, 5);
+    // Read data
     while (true) {
-        msgsock = accept(sock, nullptr, nullptr);
-        if (msgsock < 0) continue;
+        #ifdef _WIN32
+        ssize_t n = recv(new_socket, buffer, sizeof(buffer) - 1, 0);
+        #else
+        ssize_t n = read(new_socket, buffer, sizeof(buffer) - 1);
+        #endif
+        if (n <= 0) {
+            std::cout << "Client disconnected\n";
+            break;
+        }
+        // std::string response = "GET /hello.txt HTTP/1.1\r\n"
+        // "Host: localhost\r\n"
+        // "\r\n";
 
-        // handle request
-        if ((rval = read(msgsock, buf, 1024)) < 0){
-            perror("reading socket");
-        } else {
-            printf("%s\n",buf);
+        // Parse request, http request
+        // GET,
+        // DELETE,
+        // POST
+
+        // change char buffer into string for header
+        std::string header(buffer);
+        if (header.find("GET") != std::string::npos) {
+            std::cout << "GET Request found" << std::endl;
+            // GET METHOD HERE
+        }
+        if (header.find("POST") != std::string::npos) {
+            std::cout << "POST Request found" << std::endl;
+            // POST METHOD HERE
         }
 
-        strcpy(buf,"HTTP/1.1 200 OK\r\nContent-length: 20\r\nContent-type: text/plain\r\n\r\ntemp1.txt, temp2.txt");
-        if ((rval = write(msgsock, buf, 1024)) < 0){
-            perror("writing socket");
-        }
+        std::cout << "Message from client: " << buffer << std::endl;
 
-        if (msgsock == -1) {
-            perror("accept");
-        }
+        // std::string message(buffer);
+        // writeTextFile(message);
 
-        if (getenv("LOCAL_RUN")) {
-            std::cout << "removed port mapping" << std::endl;
-            removePortMapping(55387);
-        }
-
-        close(msgsock);
-        return 0;
+        buffer[n] = '\0';
     }
+
+    // Close socket
+    #ifdef _WIN32
+    closesocket(new_socket);
+    closesocket(server_fd);
+    #else
+    close(new_socket);
+    close(server_fd);
+    #endif
+
+    return 0;
 }
+
